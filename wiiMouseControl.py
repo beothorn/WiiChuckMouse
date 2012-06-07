@@ -2,12 +2,16 @@
 import serial
 import sys
 import ast
-from Xlib import X, display
+from Xlib import X,XK, display
 import Xlib.ext.xtest
 
 d = display.Display()
 s = d.screen()
 root = s.root
+
+def joystickOutsideRestingArea(value):
+	sensibility = 5
+	return value > sensibility or value < -sensibility
 
 def moveMouseRelative(xIncrease,yIncrease):
 	mouseX = root.query_pointer()._data["root_x"]
@@ -15,10 +19,9 @@ def moveMouseRelative(xIncrease,yIncrease):
 	newMouseX = mouseX
 	newMouseY = mouseY
 	factor = 6
-	sensibility = 5
-	if xIncrease > sensibility or xIncrease < -sensibility:
+	if joystickOutsideRestingArea(xIncrease):
 		newMouseX = mouseX+(xIncrease/factor)
-	if yIncrease > sensibility or yIncrease < -sensibility:
+	if joystickOutsideRestingArea(yIncrease):
 		newMouseY = mouseY-(yIncrease/factor)
 	root.warp_pointer(newMouseX,newMouseY)
 	d.sync()
@@ -41,6 +44,45 @@ def mouseWheelDown():
 	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonRelease, 5)
 	d.sync()
 
+def mouseWheel(value):
+	if joystickOutsideRestingArea(value):
+		if value > 0:
+			mouseWheelUp()
+		else:
+			mouseWheelDown()
+
+control = 37
+
+def ctrlPlus():
+	plus = 21 
+	shift = 50
+
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyPress, control)	
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyPress, shift)
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyPress, plus)
+
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyRelease, control)
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyRelease, shift)
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyRelease, plus)	
+	d.sync()
+
+def ctrlMinus():
+	minus = 20
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyPress, control)
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyPress, minus)
+  
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyRelease, control)
+	Xlib.ext.xtest.fake_input(d, Xlib.X.KeyRelease, minus) 
+
+	d.sync()
+
+def ctrl(value):
+	if joystickOutsideRestingArea(value):
+		if value > 0:
+			ctrlPlus()
+		else:
+			ctrlMinus()
+
 def processNunChuckInput(input):
 	try:
 		nunChuckInput = ast.literal_eval(nunChuckInputString)
@@ -57,11 +99,13 @@ def processNunChuckInput(input):
 	else:
 		mouseRelease(1)
 	rollLimitValue = 70
-	if nunChuckInput['r'] > rollLimitValue:
-		mouseWheelUp()
-	if nunChuckInput['r'] < -rollLimitValue:
-		mouseWheelDown()
-	moveMouseRelative(nunChuckInput['x'],nunChuckInput['y'])
+	rollingUp = nunChuckInput['r'] > rollLimitValue
+	rollingDown = nunChuckInput['r'] < -rollLimitValue
+	if rollingUp or rollingDown:
+		mouseWheel(nunChuckInput['y'])
+		ctrl(nunChuckInput['x'])
+	else:
+		moveMouseRelative(nunChuckInput['x'],nunChuckInput['y'])
 
 try:
 	ser = serial.Serial('/dev/ttyUSB0', 9600)
