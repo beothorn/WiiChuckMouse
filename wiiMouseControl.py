@@ -11,6 +11,9 @@ root = s.root
 
 def joystickOutsideRestingArea(value):
 	sensibility = 5
+	return valueInside(sensibility,value)
+
+def valueInside(sensibility,value):
 	return value > sensibility or value < -sensibility
 
 def moveMouseRelative(xIncrease,yIncrease):
@@ -77,7 +80,7 @@ def ctrlMinus():
 	d.sync()
 
 def ctrl(value):
-	if joystickOutsideRestingArea(value):
+	if valueInside(90,value):
 		if value > 0:
 			ctrlPlus()
 		else:
