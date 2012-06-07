@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import serial
 import sys
+import ast
 from Xlib import X, display
 import Xlib.ext.xtest
 
@@ -14,7 +15,7 @@ def moveMouseRelative(xIncrease,yIncrease):
 	newMouseX = mouseX
 	newMouseY = mouseY
 	factor = 6
-	sensibility = 10
+	sensibility = 5
 	if xIncrease > sensibility or xIncrease < -sensibility:
 		newMouseX = mouseX+(xIncrease/factor)
 	if yIncrease > sensibility or yIncrease < -sensibility:
@@ -25,39 +26,49 @@ def moveMouseRelative(xIncrease,yIncrease):
 def mousePress(button):
 	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonPress, button)
 	d.sync()
+
 def mouseRelease(button):
 	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonRelease, button)
 	d.sync()
 
-ser = serial.Serial('/dev/ttyUSB0', 9600)
-while 1:
-	coordinates = ser.readline()
-	splittedCoords = coordinates.partition("&")[0].partition("|")
-	x = splittedCoords[0]
-	y = splittedCoords[2]
+def mouseWheelUp():
+	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonPress, 4)
+	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonRelease, 4)
+	d.sync()
+
+def mouseWheelDown():
+	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonPress, 5)
+	Xlib.ext.xtest.fake_input(d,Xlib.X.ButtonRelease, 5)
+	d.sync()
+
+def processNunChuckInput(input):
 	try:
-		x = int(splittedCoords[0])
-	except ValueError:
-		x = 0
-	try:
-		y = int(splittedCoords[2])
-	except ValueError:
-		y = 0
-	splittedButtonState = coordinates.partition("&")[2].partition("|")
-	try:
-		pressedLeft = int(splittedButtonState[0])
-	except ValueError:
-		pressedLeft = 0
-	try:
-		pressedRight = int(splittedButtonState[2])
-	except ValueError:
-		pressedRight = 0
-	if pressedLeft == 1:
+		nunChuckInput = ast.literal_eval(nunChuckInputString)
+	except SyntaxError:
+		return
+	cPressed = nunChuckInput['c'] == 1
+	zPressed = nunChuckInput['z'] == 1
+	if cPressed:
 		mousePress(3)
 	else:
-		mouseRelease(3)
-	if pressedRight == 1:
+ 		mouseRelease(3)
+	if zPressed:
 		mousePress(1)
 	else:
 		mouseRelease(1)
-	moveMouseRelative(x,y)
+	rollLimitValue = 70
+	if nunChuckInput['r'] > rollLimitValue:
+		mouseWheelUp()
+	if nunChuckInput['r'] < -rollLimitValue:
+		mouseWheelDown()
+	moveMouseRelative(nunChuckInput['x'],nunChuckInput['y'])
+
+try:
+	ser = serial.Serial('/dev/ttyUSB0', 9600)
+	ser.readline()
+except SerialException:
+	ser = serial.Serial('/dev/ttyUSB1', 9600)
+
+while 1:
+	nunChuckInputString = ser.readline()
+	processNunChuckInput(nunChuckInputString)
