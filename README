@@ -1,1 +1,2 @@
-To run, you must have installed http://python-xlib.sourceforge.net/
+To run, you must have installed http://python-xlib.sourceforge.net/  
+sudo apt-get install python-xlib
